@@ -24,8 +24,12 @@ const char pass[] = "33664888424";
 char local_ip[32];
 const char host_ip[] = "192.168.1.101";
 unsigned int hostUdpPort = 4247;
-const char next_ip[] = "192.168.1.205";
+const char next_ip[] = "192.168.1.203";
 unsigned int nextUdpPort = 4210;
+int dist_adjust_rpm = 30;
+int dist_lower_bound = 340;
+int dist_upper_bound = 460;
+bool head_train = true;
 
 /*
 struct train_ctrl_cmd {
@@ -191,6 +195,7 @@ void setup() {
 int recv = 0;
 int flag = 0;
 char replyPacket[256];
+int dist = -1;
 
 void loop() {
   //int v= 128;
@@ -230,11 +235,12 @@ void loop() {
   if(recv >= 0){
       //Serial.println((int)buf[1]); 
     
-    
-   
-    if (recv > rpm && flag % 10 == 0)
+    int adj = 0;
+    if(dist != -1 && dist<dist_lower_bound && !head_train) adj = -30;
+    else if(dist!=-1 && dist > dist_upper_bound && !head_train) adj = 30;
+    if (recv+adj > rpm && flag % 10 == 0)
     {  
-       diff = recv - rpm;
+       diff = recv +adj- rpm;
        v = v + diff * scale;
        if (v > MAX_V)
        {
@@ -243,9 +249,9 @@ void loop() {
        
        //analogWrite(MOTOR_PWMA, v);
     }
-    else if (recv < rpm && flag % 10 == 0)
+    else if (recv+adj < rpm && flag % 10 == 0)
     {   
-       diff = rpm - recv;
+       diff = rpm - recv-adj;
        v = v - diff * scale;
        if (v < 30)
        {
@@ -281,10 +287,11 @@ void loop() {
     Serial.print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     Serial.println(tt-rr);
     Serial.println(temp);
-    sprintf(replyPacket,"%d",temp);
+    sprintf(replyPacket,"%d",-temp);
     Udp.beginPacket(host_ip, hostUdpPort);
     Udp.write(replyPacket);
     Udp.endPacket();
+    dist = temp;
   }
   
 
